@@ -19,6 +19,7 @@ public class PearlMirrorMod implements ClientModInitializer {
     private static PearlMirrorConfig config;
     private static KeyMapping mirrorKey;
     private static boolean isThrowing = false;
+    private static int throwTicks = 0;
     private static float targetYaw = 0;
     private static float targetPitch = 0;
     
@@ -43,7 +44,7 @@ public class PearlMirrorMod implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (!config.enabled || client.player == null || client.level == null) return;
 
-            // Чистим список от мертвых перлов и тех, что дальше радиуса
+            // Чистим список от мертвых перлов и далеких
             activePearls.removeIf(p -> !p.isAlive() || p.distanceTo(client.player) > config.radius);
 
             // Ищем ближайший перл врага
@@ -51,7 +52,16 @@ public class PearlMirrorMod implements ClientModInitializer {
             double closestDist = config.radius;
 
             for (Entity pearl : activePearls) {
-                if (pearl != client.player) {
+                // Пытаемся проверить владельца (чтобы не брать свой перл)
+                boolean isMine = false;
+                try {
+                    Object owner = pearl.getClass().getMethod("getOwner").invoke(pearl);
+                    if (owner == client.player) {
+                        isMine = true;
+                    }
+                } catch (Exception ignored) {}
+
+                if (!isMine) {
                     double dist = pearl.distanceTo(client.player);
                     if (dist < closestDist) {
                         closestDist = dist;
@@ -62,8 +72,20 @@ public class PearlMirrorMod implements ClientModInitializer {
 
             // Если нашли, запоминаем углы
             if (enemyPearl != null) {
-                targetYaw = enemyPearl.getYRot();
-                targetPitch = enemyPearl.getXRot();
+                Entity owner = null;
+                try {
+                    owner = (Entity) enemyPearl.getClass().getMethod("getOwner").invoke(enemyPearl);
+                } catch (Exception ignored) {}
+
+                if (owner != null) {
+                    // Берем углы у игрока, который кинул перл
+                    targetYaw = owner.getYRot();
+                    targetPitch = owner.getXRot();
+                } else {
+                    // Если владельца нет, смотрим строго горизонтально
+                    targetYaw = enemyPearl.getYRot();
+                    targetPitch = 0;
+                }
             }
 
             // Нажатие кнопки
@@ -75,6 +97,7 @@ public class PearlMirrorMod implements ClientModInitializer {
                         client.player.setYRot(targetYaw);
                         client.player.setXRot(targetPitch);
                         isThrowing = true;
+                        throwTicks = 2; // Держим ПКМ 2 тика
                     } else {
                         client.player.displayClientMessage(Component.literal("§cПерла нет в хотбаре!"), true);
                     }
@@ -83,12 +106,16 @@ public class PearlMirrorMod implements ClientModInitializer {
                 }
             }
 
-            // Логика броска: нажимаем ПКМ ТОЛЬКО если isThrowing == true
+            // Логика броска
             if (isThrowing) {
-                client.options.keyUse.setDown(true);
-                isThrowing = false;
+                if (throwTicks > 0) {
+                    throwTicks--;
+                    client.options.keyUse.setDown(true);
+                } else {
+                    client.options.keyUse.setDown(false);
+                    isThrowing = false;
+                }
             }
-            // И больше НИЧЕГО не делаем с keyUse, чтобы ты мог есть/блокировать
         });
     }
 
