@@ -15,9 +15,10 @@ public class PearlMirrorConfig {
 
     public boolean enabled = true;
     public double radius = 70.0;
+    public double pitchBoost = 8.0;
     
-    // ВОТ ТА САМАЯ ПЕРЕМЕННАЯ, КОТОРОЙ НЕ ХВАТАЛО
-    public double pitchBoost = 8.0; 
+    // Код кнопки Килки (R = 82)
+    public int auraKeyCode = 82; 
 
     public static PearlMirrorConfig load() {
         if (CONFIG_FILE.exists()) {
