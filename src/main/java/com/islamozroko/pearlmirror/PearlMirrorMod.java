@@ -7,9 +7,7 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
 import net.minecraft.resources.Identifier;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.Items;
 import org.lwjgl.glfw.GLFW;
@@ -21,6 +19,10 @@ public class PearlMirrorMod implements ClientModInitializer {
     public static float savedYaw = 0;
     public static float savedPitch = 0;
     public static boolean hasSavedPearl = false;
+    
+    // Состояния для броска
+    private static int state = 0; // 0 - ничего, 1 - свапнули, 2 - кидаем
+    private static int oldSlot = -1;
 
     public static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
             Identifier.fromNamespaceAndPath("pearlmirror", "main")
@@ -42,38 +44,56 @@ public class PearlMirrorMod implements ClientModInitializer {
 
             // Нажатие кнопки
             while (mirrorKey.consumeClick()) {
-                if (hasSavedPearl) {
+                if (hasSavedPearl && state == 0) {
                     int pearlSlot = findPearl(client);
                     if (pearlSlot != -1) {
-                        // Выключаем килку, чтобы она не сбила камеру
+                        // Выключаем килку
                         setKeyPressed(config.auraKeyCode, true);
                         setKeyPressed(config.auraKeyCode, false);
                         
-                        // Свапаем слот
+                        // Запоминаем старый слот и свапаем на перл
+                        oldSlot = client.player.getInventory().getSelectedSlot();
                         client.player.getInventory().setSelectedSlot(pearlSlot);
                         
-                        // Отправляем пакет напрямую с нашими углами (килка не видит)
-                        if (client.getConnection() != null) {
-                            client.getConnection().send(new ServerboundUseItemPacket(
-                                    InteractionHand.MAIN_HAND, 
-                                    0, 
-                                    savedYaw, 
-                                    savedPitch
-                            ));
-                        }
+                        // Поворачиваем камеру
+                        client.player.setYRot(savedYaw);
+                        client.player.setXRot(savedPitch);
                         
-                        hasSavedPearl = false;
+                        state = 1; // Переходим в состояние "кидаем"
                     } else {
                         client.player.displayClientMessage(Component.literal("§cПерла нет в хотбаре!"), true);
                     }
-                } else {
+                } else if (!hasSavedPearl) {
                     client.player.displayClientMessage(Component.literal("§cПерл врага не найден!"), true);
                 }
+            }
+
+            // Логика броска (в следующем тике после свапа)
+            if (state == 1) {
+                // Держим камеру, чтобы килка не сбила
+                client.player.setYRot(savedYaw);
+                client.player.setXRot(savedPitch);
+                
+                // Нажимаем ПКМ (кидаем)
+                client.options.keyUse.setDown(true);
+                state = 2;
+            } else if (state == 2) {
+                // Отпускаем ПКМ
+                client.options.keyUse.setDown(false);
+                
+                // Возвращаем старый слот (меч)
+                if (oldSlot != -1) {
+                    client.player.getInventory().setSelectedSlot(oldSlot);
+                    oldSlot = -1;
+                }
+                
+                // Сбрасываем состояние
+                state = 0;
+                hasSavedPearl = false;
             }
         });
     }
 
-    // Вызывается из миксина
     public static void onPearlSpawned(Entity pearl) {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null || pearl == null) return;
@@ -90,18 +110,14 @@ public class PearlMirrorMod implements ClientModInitializer {
                 owner = (Entity) pearl.getClass().getMethod("getOwner").invoke(pearl);
             } catch (Exception ignored) {}
 
-            // Берем углы врага. Если он смотрел вверх, мы смотрим еще выше (буст).
             if (owner != null) {
                 savedYaw = owner.getYRot();
                 savedPitch = owner.getXRot() + (float) config.pitchBoost;
             } else {
-                // Если владельца нет — просто летим горизонтально + буст
                 savedYaw = pearl.getYRot();
                 savedPitch = (float) config.pitchBoost;
             }
             
-            // ВАЖНО: Если перл летит вниз (падает), owner.getXRot() может быть отрицательным.
-            // Мы принудительно ставим угол вверх, чтобы не промахнуться.
             if (savedPitch < 0) {
                 savedPitch = (float) config.pitchBoost;
             }
