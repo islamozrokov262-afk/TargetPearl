@@ -14,7 +14,10 @@ public class PearlMirrorConfig {
     private static final File CONFIG_FILE = FabricLoader.getInstance().getConfigDir().resolve("pearlmirror.json").toFile();
 
     public boolean enabled = true;
-    public double radius = 70.0; // Радиус поиска
+    public double radius = 70.0;
+    
+    // ВОТ ТА САМАЯ ПЕРЕМЕННАЯ, КОТОРОЙ НЕ ХВАТАЛО
+    public double pitchBoost = 8.0; 
 
     public static PearlMirrorConfig load() {
         if (CONFIG_FILE.exists()) {
