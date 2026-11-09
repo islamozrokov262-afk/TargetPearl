@@ -7,7 +7,9 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.Items;
 import org.lwjgl.glfw.GLFW;
@@ -19,9 +21,6 @@ public class PearlMirrorMod implements ClientModInitializer {
     public static float savedYaw = 0;
     public static float savedPitch = 0;
     public static boolean hasSavedPearl = false;
-    
-    private static boolean isThrowing = false;
-    private static int throwTicks = 0;
 
     public static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
             Identifier.fromNamespaceAndPath("pearlmirror", "main")
@@ -46,16 +45,23 @@ public class PearlMirrorMod implements ClientModInitializer {
                 if (hasSavedPearl) {
                     int pearlSlot = findPearl(client);
                     if (pearlSlot != -1) {
-                        // Выключаем килку (эмулируем нажатие R)
+                        // Выключаем килку, чтобы она не сбила камеру
                         setKeyPressed(config.auraKeyCode, true);
                         setKeyPressed(config.auraKeyCode, false);
                         
+                        // Свапаем слот
                         client.player.getInventory().setSelectedSlot(pearlSlot);
-                        client.player.setYRot(savedYaw);
-                        client.player.setXRot(savedPitch);
                         
-                        isThrowing = true;
-                        throwTicks = 2;
+                        // Отправляем пакет напрямую с нашими углами (килка не видит)
+                        if (client.getConnection() != null) {
+                            client.getConnection().send(new ServerboundUseItemPacket(
+                                    InteractionHand.MAIN_HAND, 
+                                    0, 
+                                    savedYaw, 
+                                    savedPitch
+                            ));
+                        }
+                        
                         hasSavedPearl = false;
                     } else {
                         client.player.displayClientMessage(Component.literal("§cПерла нет в хотбаре!"), true);
@@ -64,23 +70,10 @@ public class PearlMirrorMod implements ClientModInitializer {
                     client.player.displayClientMessage(Component.literal("§cПерл врага не найден!"), true);
                 }
             }
-
-            // Бросок
-            if (isThrowing) {
-                if (throwTicks > 0) {
-                    throwTicks--;
-                    client.player.setYRot(savedYaw);
-                    client.player.setXRot(savedPitch);
-                    client.options.keyUse.setDown(true);
-                } else {
-                    client.options.keyUse.setDown(false);
-                    isThrowing = false;
-                }
-            }
         });
     }
 
-    // Метод для миксина
+    // Вызывается из миксина
     public static void onPearlSpawned(Entity pearl) {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null || pearl == null) return;
@@ -97,13 +90,22 @@ public class PearlMirrorMod implements ClientModInitializer {
                 owner = (Entity) pearl.getClass().getMethod("getOwner").invoke(pearl);
             } catch (Exception ignored) {}
 
+            // Берем углы врага. Если он смотрел вверх, мы смотрим еще выше (буст).
             if (owner != null) {
                 savedYaw = owner.getYRot();
                 savedPitch = owner.getXRot() + (float) config.pitchBoost;
             } else {
+                // Если владельца нет — просто летим горизонтально + буст
                 savedYaw = pearl.getYRot();
                 savedPitch = (float) config.pitchBoost;
             }
+            
+            // ВАЖНО: Если перл летит вниз (падает), owner.getXRot() может быть отрицательным.
+            // Мы принудительно ставим угол вверх, чтобы не промахнуться.
+            if (savedPitch < 0) {
+                savedPitch = (float) config.pitchBoost;
+            }
+            
             hasSavedPearl = true;
         }
     }
