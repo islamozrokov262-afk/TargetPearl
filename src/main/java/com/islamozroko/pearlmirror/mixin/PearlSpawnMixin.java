@@ -19,12 +19,11 @@ public class PearlSpawnMixin {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
         
-        // Получаем сущность по ID из пакета
         Entity entity = mc.level.getEntity(packet.getId());
         
-        // ПРОВЕРКА: если тип сущности - эндер-перл, добавляем в список
+        // Если это перл - передаем его в наш мод
         if (entity != null && entity.getType() == EntityType.ENDER_PEARL) {
-            PearlMirrorMod.activePearls.add(entity);
+            PearlMirrorMod.onPearlSpawned(entity);
         }
     }
 }
