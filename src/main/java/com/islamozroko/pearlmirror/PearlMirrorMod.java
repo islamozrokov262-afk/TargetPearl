@@ -20,7 +20,6 @@ public class PearlMirrorMod implements ClientModInitializer {
     public static float savedPitch = 0;
     public static boolean hasSavedPearl = false;
     
-    // Состояния для броска
     private static int state = 0; // 0 - ничего, 1 - свапнули, 2 - кидаем
     private static int oldSlot = -1;
 
@@ -126,6 +125,7 @@ public class PearlMirrorMod implements ClientModInitializer {
         }
     }
 
+    // ВОТ ЭТОТ МЕТОД НУЖЕН ДЛЯ ЭМУЛЯЦИИ КНОПКИ R
     private void setKeyPressed(int keyCode, boolean pressed) {
         KeyMapping.set(InputConstants.Type.KEYSYM.getOrCreate(keyCode), pressed);
         KeyMapping.click(InputConstants.Type.KEYSYM.getOrCreate(keyCode));
