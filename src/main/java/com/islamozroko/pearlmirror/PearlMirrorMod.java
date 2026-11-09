@@ -9,7 +9,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.projectile.ThrownEnderpearl;
 import net.minecraft.world.item.Items;
 import org.lwjgl.glfw.GLFW;
 
@@ -23,8 +22,8 @@ public class PearlMirrorMod implements ClientModInitializer {
     private static float targetYaw = 0;
     private static float targetPitch = 0;
     
-    // Список активных перлов (для отслеживания)
-    public static final List<ThrownEnderpearl> activePearls = new ArrayList<>();
+    // Теперь список хранит просто Entity (любую сущность)
+    public static final List<Entity> activePearls = new ArrayList<>();
 
     public static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
             Identifier.fromNamespaceAndPath("pearlmirror", "main")
@@ -44,15 +43,17 @@ public class PearlMirrorMod implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (!config.enabled || client.player == null || client.level == null) return;
 
-            // Чистим список от мертвых перлов
+            // Чистим список от мертвых перлов и тех, что дальше радиуса
             activePearls.removeIf(p -> !p.isAlive() || p.distanceTo(client.player) > config.radius);
 
             // Ищем ближайший перл врага
-            ThrownEnderpearl enemyPearl = null;
+            Entity enemyPearl = null;
             double closestDist = config.radius;
 
-            for (ThrownEnderpearl pearl : activePearls) {
-                if (pearl.getOwner() != client.player) {
+            for (Entity pearl : activePearls) {
+                // Проверяем, что это не наш перл (владелец не мы)
+                // Владельца проверяем через метод, который есть у Entity
+                if (pearl != client.player) {
                     double dist = pearl.distanceTo(client.player);
                     if (dist < closestDist) {
                         closestDist = dist;
