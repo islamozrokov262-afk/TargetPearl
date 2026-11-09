@@ -5,7 +5,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.projectile.ThrownEnderpearl;
+import net.minecraft.world.entity.EntityType;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -19,10 +19,12 @@ public class PearlSpawnMixin {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
         
-        // Проверяем, что это перл
+        // Получаем сущность по ID из пакета
         Entity entity = mc.level.getEntity(packet.getId());
-        if (entity instanceof ThrownEnderpearl pearl) {
-            PearlMirrorMod.activePearls.add(pearl);
+        
+        // ПРОВЕРКА: если тип сущности - эндер-перл, добавляем в список
+        if (entity != null && entity.getType() == EntityType.ENDER_PEARL) {
+            PearlMirrorMod.activePearls.add(entity);
         }
     }
 }
