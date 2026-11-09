@@ -9,8 +9,12 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.projectile.ThrownEnderpearl;
 import net.minecraft.world.item.Items;
 import org.lwjgl.glfw.GLFW;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class PearlMirrorMod implements ClientModInitializer {
     private static PearlMirrorConfig config;
@@ -18,6 +22,9 @@ public class PearlMirrorMod implements ClientModInitializer {
     private static boolean isThrowing = false;
     private static float targetYaw = 0;
     private static float targetPitch = 0;
+    
+    // Список активных перлов (для отслеживания)
+    public static final List<ThrownEnderpearl> activePearls = new ArrayList<>();
 
     public static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
             Identifier.fromNamespaceAndPath("pearlmirror", "main")
@@ -37,33 +44,30 @@ public class PearlMirrorMod implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (!config.enabled || client.player == null || client.level == null) return;
 
-            // Ищем перл врага в радиусе (по имени класса, чтобы не зависеть от маппингов)
-            Entity enemyPearl = null;
-            for (Entity e : client.level.entitiesForRendering()) {
-                if (e.getClass().getSimpleName().contains("Enderpearl")) {
-                    // Проверяем, что это не наш перл
-                    if (e != client.player.getVehicle() && e.distanceTo(client.player) <= config.radius) {
-                        // Проверяем владельца, если метод есть
-                        try {
-                            Object owner = e.getClass().getMethod("getOwner").invoke(e);
-                            if (owner != client.player) {
-                                enemyPearl = e;
-                                break;
-                            }
-                        } catch (Exception ex) {
-                            // Если метода нет, просто берем перл
-                            enemyPearl = e;
-                            break;
-                        }
+            // Чистим список от мертвых перлов
+            activePearls.removeIf(p -> !p.isAlive() || p.distanceTo(client.player) > config.radius);
+
+            // Ищем ближайший перл врага
+            ThrownEnderpearl enemyPearl = null;
+            double closestDist = config.radius;
+
+            for (ThrownEnderpearl pearl : activePearls) {
+                if (pearl.getOwner() != client.player) {
+                    double dist = pearl.distanceTo(client.player);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        enemyPearl = pearl;
                     }
                 }
             }
 
+            // Если нашли, запоминаем углы
             if (enemyPearl != null) {
                 targetYaw = enemyPearl.getYRot();
                 targetPitch = enemyPearl.getXRot();
             }
 
+            // Нажатие кнопки
             while (mirrorKey.consumeClick()) {
                 if (enemyPearl != null) {
                     int pearlSlot = findPearl(client);
@@ -80,6 +84,7 @@ public class PearlMirrorMod implements ClientModInitializer {
                 }
             }
 
+            // Логика броска
             if (isThrowing) {
                 client.options.keyUse.setDown(true);
                 isThrowing = false;
