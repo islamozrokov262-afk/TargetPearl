@@ -13,6 +13,9 @@
       "com.islamozroko.pearlmirror.PearlMirrorModMenu"
     ]
   },
+  "mixins": [
+    "pearlmirror.mixins.json"
+  ],
   "depends": {
     "fabricloader": ">=0.20.1",
     "minecraft": "~1.21.11",
