@@ -16,9 +16,9 @@ public class PearlMirrorMod implements ClientModInitializer {
     private static PearlMirrorConfig config;
     private static KeyMapping mirrorKey;
     
-    private static float savedYaw = 0;
-    private static float savedPitch = 0;
-    private static boolean hasSavedPearl = false;
+    public static float savedYaw = 0;
+    public static float savedPitch = 0;
+    public static boolean hasSavedPearl = false;
     
     private static boolean isThrowing = false;
     private static int throwTicks = 0;
@@ -41,37 +41,7 @@ public class PearlMirrorMod implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (!config.enabled || client.player == null || client.level == null) return;
 
-            // 1. Ищем перл врага и запоминаем углы
-            if (!hasSavedPearl) {
-                for (Entity e : client.level.entitiesForRendering()) {
-                    if (e.getClass().getSimpleName().toLowerCase().contains("pearl")) {
-                        boolean isMine = false;
-                        try {
-                            Object owner = e.getClass().getMethod("getOwner").invoke(e);
-                            if (owner == client.player) isMine = true;
-                        } catch (Exception ignored) {}
-
-                        if (!isMine && e.distanceTo(client.player) <= config.radius) {
-                            Entity owner = null;
-                            try {
-                                owner = (Entity) e.getClass().getMethod("getOwner").invoke(e);
-                            } catch (Exception ignored) {}
-
-                            if (owner != null) {
-                                savedYaw = owner.getYRot();
-                                savedPitch = owner.getXRot() + (float) config.pitchBoost;
-                            } else {
-                                savedYaw = e.getYRot();
-                                savedPitch = (float) config.pitchBoost;
-                            }
-                            hasSavedPearl = true;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // 2. Нажатие кнопки
+            // Нажатие кнопки
             while (mirrorKey.consumeClick()) {
                 if (hasSavedPearl) {
                     int pearlSlot = findPearl(client);
@@ -95,7 +65,7 @@ public class PearlMirrorMod implements ClientModInitializer {
                 }
             }
 
-            // 3. Бросок
+            // Бросок
             if (isThrowing) {
                 if (throwTicks > 0) {
                     throwTicks--;
@@ -108,6 +78,34 @@ public class PearlMirrorMod implements ClientModInitializer {
                 }
             }
         });
+    }
+
+    // Метод для миксина
+    public static void onPearlSpawned(Entity pearl) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null || pearl == null) return;
+        
+        boolean isMine = false;
+        try {
+            Object owner = pearl.getClass().getMethod("getOwner").invoke(pearl);
+            if (owner == client.player) isMine = true;
+        } catch (Exception ignored) {}
+
+        if (!isMine && pearl.distanceTo(client.player) <= config.radius) {
+            Entity owner = null;
+            try {
+                owner = (Entity) pearl.getClass().getMethod("getOwner").invoke(pearl);
+            } catch (Exception ignored) {}
+
+            if (owner != null) {
+                savedYaw = owner.getYRot();
+                savedPitch = owner.getXRot() + (float) config.pitchBoost;
+            } else {
+                savedYaw = pearl.getYRot();
+                savedPitch = (float) config.pitchBoost;
+            }
+            hasSavedPearl = true;
+        }
     }
 
     private void setKeyPressed(int keyCode, boolean pressed) {
