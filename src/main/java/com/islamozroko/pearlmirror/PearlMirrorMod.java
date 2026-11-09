@@ -22,7 +22,7 @@ public class PearlMirrorMod implements ClientModInitializer {
     private static float targetYaw = 0;
     private static float targetPitch = 0;
     
-    // Теперь список хранит просто Entity (любую сущность)
+    // Список активных перлов
     public static final List<Entity> activePearls = new ArrayList<>();
 
     public static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
@@ -51,8 +51,6 @@ public class PearlMirrorMod implements ClientModInitializer {
             double closestDist = config.radius;
 
             for (Entity pearl : activePearls) {
-                // Проверяем, что это не наш перл (владелец не мы)
-                // Владельца проверяем через метод, который есть у Entity
                 if (pearl != client.player) {
                     double dist = pearl.distanceTo(client.player);
                     if (dist < closestDist) {
@@ -85,13 +83,12 @@ public class PearlMirrorMod implements ClientModInitializer {
                 }
             }
 
-            // Логика броска
+            // Логика броска: нажимаем ПКМ ТОЛЬКО если isThrowing == true
             if (isThrowing) {
                 client.options.keyUse.setDown(true);
                 isThrowing = false;
-            } else {
-                client.options.keyUse.setDown(false);
             }
+            // И больше НИЧЕГО не делаем с keyUse, чтобы ты мог есть/блокировать
         });
     }
 
