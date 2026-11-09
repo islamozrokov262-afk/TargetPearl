@@ -19,15 +19,17 @@ public class PearlMirrorConfigScreen {
         ConfigCategory general = builder.getOrCreateCategory(Component.literal("Основное"));
         
         general.addEntry(entryBuilder.startBooleanToggle(Component.literal("Включить"), config.enabled)
-                .setDefaultValue(true)
-                .setSaveConsumer(newValue -> config.enabled = newValue)
-                .build());
+                .setDefaultValue(true).setSaveConsumer(v -> config.enabled = v).build());
                 
-        general.addEntry(entryBuilder.startDoubleField(Component.literal("Радиус поиска (блоки)"), config.radius)
-                .setDefaultValue(70.0)
-                .setMin(5.0).setMax(100.0)
-                .setSaveConsumer(newValue -> config.radius = newValue)
-                .build());
+        general.addEntry(entryBuilder.startDoubleField(Component.literal("Радиус поиска"), config.radius)
+                .setDefaultValue(70.0).setMin(5.0).setMax(100.0).setSaveConsumer(v -> config.radius = v).build());
+
+        general.addEntry(entryBuilder.startDoubleField(Component.literal("Буст угла (Pitch)"), config.pitchBoost)
+                .setDefaultValue(8.0).setMin(0.0).setMax(45.0).setSaveConsumer(v -> config.pitchBoost = v).build());
+                
+        general.addEntry(entryBuilder.startIntField(Component.literal("Код кнопки Килки (R=82)"), config.auraKeyCode)
+                .setDefaultValue(82)
+                .setSaveConsumer(v -> config.auraKeyCode = v).build());
         
         return builder.build();
     }
