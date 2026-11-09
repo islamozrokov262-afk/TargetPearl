@@ -12,18 +12,16 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.Items;
 import org.lwjgl.glfw.GLFW;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class PearlMirrorMod implements ClientModInitializer {
     private static PearlMirrorConfig config;
     private static KeyMapping mirrorKey;
+    
+    private static float savedYaw = 0;
+    private static float savedPitch = 0;
+    private static boolean hasSavedPearl = false;
+    
     private static boolean isThrowing = false;
     private static int throwTicks = 0;
-    private static float targetYaw = 0;
-    private static float targetPitch = 0;
-    
-    public static final List<Entity> activePearls = new ArrayList<>();
 
     public static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
             Identifier.fromNamespaceAndPath("pearlmirror", "main")
@@ -43,56 +41,52 @@ public class PearlMirrorMod implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (!config.enabled || client.player == null || client.level == null) return;
 
-            // Чистим список
-            activePearls.removeIf(p -> !p.isAlive() || p.distanceTo(client.player) > config.radius);
+            // 1. Ищем перл врага и запоминаем углы
+            if (!hasSavedPearl) {
+                for (Entity e : client.level.entitiesForRendering()) {
+                    if (e.getClass().getSimpleName().toLowerCase().contains("pearl")) {
+                        boolean isMine = false;
+                        try {
+                            Object owner = e.getClass().getMethod("getOwner").invoke(e);
+                            if (owner == client.player) isMine = true;
+                        } catch (Exception ignored) {}
 
-            // Ищем ближайший перл врага
-            Entity enemyPearl = null;
-            double closestDist = config.radius;
+                        if (!isMine && e.distanceTo(client.player) <= config.radius) {
+                            Entity owner = null;
+                            try {
+                                owner = (Entity) e.getClass().getMethod("getOwner").invoke(e);
+                            } catch (Exception ignored) {}
 
-            for (Entity pearl : activePearls) {
-                boolean isMine = false;
-                try {
-                    Object owner = pearl.getClass().getMethod("getOwner").invoke(pearl);
-                    if (owner == client.player) isMine = true;
-                } catch (Exception ignored) {}
-
-                if (!isMine) {
-                    double dist = pearl.distanceTo(client.player);
-                    if (dist < closestDist) {
-                        closestDist = dist;
-                        enemyPearl = pearl;
+                            if (owner != null) {
+                                savedYaw = owner.getYRot();
+                                savedPitch = owner.getXRot() + (float) config.pitchBoost;
+                            } else {
+                                savedYaw = e.getYRot();
+                                savedPitch = (float) config.pitchBoost;
+                            }
+                            hasSavedPearl = true;
+                            break;
+                        }
                     }
                 }
             }
 
-            // Если нашли, запоминаем углы и добавляем БУСТ
-            if (enemyPearl != null) {
-                Entity owner = null;
-                try {
-                    owner = (Entity) enemyPearl.getClass().getMethod("getOwner").invoke(enemyPearl);
-                } catch (Exception ignored) {}
-
-                if (owner != null) {
-                    targetYaw = owner.getYRot();
-                    // БЕРЕМ УГОЛ ВРАГА И ДОБАВЛЯЕМ БУСТ
-                    targetPitch = owner.getXRot() + (float) config.pitchBoost; 
-                } else {
-                    targetYaw = enemyPearl.getYRot();
-                    targetPitch = (float) config.pitchBoost;
-                }
-            }
-
-            // Нажатие кнопки
+            // 2. Нажатие кнопки
             while (mirrorKey.consumeClick()) {
-                if (enemyPearl != null) {
+                if (hasSavedPearl) {
                     int pearlSlot = findPearl(client);
                     if (pearlSlot != -1) {
+                        // Выключаем килку (эмулируем нажатие R)
+                        setKeyPressed(config.auraKeyCode, true);
+                        setKeyPressed(config.auraKeyCode, false);
+                        
                         client.player.getInventory().setSelectedSlot(pearlSlot);
-                        client.player.setYRot(targetYaw);
-                        client.player.setXRot(targetPitch);
+                        client.player.setYRot(savedYaw);
+                        client.player.setXRot(savedPitch);
+                        
                         isThrowing = true;
                         throwTicks = 2;
+                        hasSavedPearl = false;
                     } else {
                         client.player.displayClientMessage(Component.literal("§cПерла нет в хотбаре!"), true);
                     }
@@ -101,10 +95,12 @@ public class PearlMirrorMod implements ClientModInitializer {
                 }
             }
 
-            // Логика броска
+            // 3. Бросок
             if (isThrowing) {
                 if (throwTicks > 0) {
                     throwTicks--;
+                    client.player.setYRot(savedYaw);
+                    client.player.setXRot(savedPitch);
                     client.options.keyUse.setDown(true);
                 } else {
                     client.options.keyUse.setDown(false);
@@ -112,6 +108,11 @@ public class PearlMirrorMod implements ClientModInitializer {
                 }
             }
         });
+    }
+
+    private void setKeyPressed(int keyCode, boolean pressed) {
+        KeyMapping.set(InputConstants.Type.KEYSYM.getOrCreate(keyCode), pressed);
+        KeyMapping.click(InputConstants.Type.KEYSYM.getOrCreate(keyCode));
     }
 
     private int findPearl(Minecraft client) {
