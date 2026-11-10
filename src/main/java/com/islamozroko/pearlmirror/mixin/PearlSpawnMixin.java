@@ -1,28 +1,20 @@
 package com.islamozroko.pearlmirror.mixin;
 
 import com.islamozroko.pearlmirror.PearlMirrorMod;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientPacketListener;
-import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.projectile.EnderPearl;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(ClientPacketListener.class)
-public class PearlSpawnMixin {
-    
-    @Inject(method = "handleAddEntity", at = @At("TAIL"))
-    private void onEntitySpawn(ClientboundAddEntityPacket packet, CallbackInfo ci) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null) return;
-        
-        Entity entity = mc.level.getEntity(packet.getId());
-        
-        if (entity != null && entity.getType() == EntityType.ENDER_PEARL) {
-            PearlMirrorMod.onPearlSpawned(entity);
+@Mixin(Level.class)
+public class EnderPearlSpawnMixin {
+    @Inject(method = "addEntity", at = @At("TAIL"))
+    private void pearlMirror$onEntityAdded(Entity entity, CallbackInfoReturnable<Boolean> cir) {
+        if (entity instanceof EnderPearl pearl) {
+            PearlMirrorMod.onPearlSpawned(pearl);
         }
     }
 }
