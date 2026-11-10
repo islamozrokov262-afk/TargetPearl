@@ -1,36 +1,71 @@
 package com.islamozroko.pearlmirror;
 
-import me.shedaniel.clothconfig2.api.ConfigBuilder;
-import me.shedaniel.clothconfig2.api.ConfigCategory;
-import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.client.gui.screens.options.OptionsSubScreen;
 
-public class PearlMirrorConfigScreen {
-    public static Screen create(Screen parent) {
-        PearlMirrorConfig config = PearlMirrorMod.getConfig();
-        
-        ConfigBuilder builder = ConfigBuilder.create()
-                .setParentScreen(parent)
-                .setTitle(Component.literal("Pearl Mirror"))
-                .setSavingRunnable(config::save);
-        
-        ConfigEntryBuilder entryBuilder = builder.entryBuilder();
-        ConfigCategory general = builder.getOrCreateCategory(Component.literal("Основное"));
-        
-        general.addEntry(entryBuilder.startBooleanToggle(Component.literal("Включить"), config.enabled)
-                .setDefaultValue(true).setSaveConsumer(v -> config.enabled = v).build());
-                
-        general.addEntry(entryBuilder.startDoubleField(Component.literal("Радиус поиска"), config.radius)
-                .setDefaultValue(70.0).setMin(5.0).setMax(100.0).setSaveConsumer(v -> config.radius = v).build());
+public class PearlMirrorConfigScreen extends OptionsSubScreen {
 
-        general.addEntry(entryBuilder.startDoubleField(Component.literal("Буст угла (Pitch)"), config.pitchBoost)
-                .setDefaultValue(8.0).setMin(0.0).setMax(45.0).setSaveConsumer(v -> config.pitchBoost = v).build());
-                
-        general.addEntry(entryBuilder.startIntField(Component.literal("Код кнопки Килки (R=82)"), config.auraKeyCode)
-                .setDefaultValue(82)
-                .setSaveConsumer(v -> config.auraKeyCode = v).build());
-        
-        return builder.build();
+    public PearlMirrorConfigScreen(Screen parent) {
+        super(parent, net.minecraft.client.Minecraft.getInstance().options, Component.literal("Pearl Mirror Settings"));
+    }
+
+    @Override
+    protected void addOptions() {
+        PearlMirrorConfig cfg = PearlMirrorMod.getConfig();
+        if (cfg == null) return;
+
+        if (this.list != null) {
+            // Основные настройки
+            this.list.addSmall(
+                    new net.minecraft.client.OptionInstance[]{
+                            // Радиус
+                            new net.minecraft.client.OptionInstance<>(
+                                    "Радиус поиска",
+                                    net.minecraft.client.OptionInstance.doubleRange(5.0, 100.0),
+                                    (v) -> String.format("%.0f", v),
+                                    cfg.radius,
+                                    (v) -> cfg.radius = v.floatValue()
+                            ),
+                            // Задержка
+                            new net.minecraft.client.OptionInstance<>(
+                                    "Задержка (тики)",
+                                    net.minecraft.client.OptionInstance.intRange(1, 40),
+                                    (v) -> String.valueOf(v),
+                                    cfg.delayTicks,
+                                    (v) -> cfg.delayTicks = v
+                            )
+                    }
+            );
+
+            // Булевы настройки
+            this.list.addSmall(
+                    new net.minecraft.client.OptionInstance[]{
+                            net.minecraft.client.OptionInstance.createBoolean("Игнорить тиммейтов", cfg.ignoreTeammates, (v) -> cfg.ignoreTeammates = v),
+                            net.minecraft.client.OptionInstance.createBoolean("Только ближайший перл", cfg.preferClosest, (v) -> cfg.preferClosest = v)
+                    }
+            );
+
+            // Сохранение
+            this.list.addSmall(
+                    new net.minecraft.client.OptionInstance[]{
+                            net.minecraft.client.OptionInstance.createBoolean("Включить модуль", cfg.enabled, (v) -> {
+                                cfg.enabled = v;
+                                cfg.save();
+                            })
+                    }
+            );
+        }
+    }
+
+    @Override
+    public void onClose() {
+        PearlMirrorConfig cfg = PearlMirrorMod.getConfig();
+        if (cfg != null) cfg.save();
+        super.onClose();
     }
 }
