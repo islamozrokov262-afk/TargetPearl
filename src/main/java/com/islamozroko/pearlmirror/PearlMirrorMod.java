@@ -11,7 +11,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.projectile.ThrownEnderpearl; // ИСПРАВЛЕНО
+import net.minecraft.world.entity.projectile.ThrownEnderpearl;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
@@ -71,8 +71,8 @@ public class PearlMirrorMod implements ClientModInitializer {
                 Vec3 eyes = client.player.getEyePosition();
                 float[] angles = calculateThrowAngles(client, eyes, landingPoint);
 
-                oldSlot = client.player.getInventory().selected; // В 1.21.11 это поле
-                client.player.getInventory().selected = pearlSlot;
+                oldSlot = client.player.getInventory().getSelectedSlot();
+                client.player.getInventory().setSelectedSlot(pearlSlot);
                 client.player.setYRot(angles[0]);
                 client.player.setXRot(angles[1]);
 
@@ -90,7 +90,7 @@ public class PearlMirrorMod implements ClientModInitializer {
                     client.options.keyUse.setDown(false);
                     isThrowing = false;
                     if (oldSlot >= 0) {
-                        client.player.getInventory().selected = oldSlot;
+                        client.player.getInventory().setSelectedSlot(oldSlot);
                         oldSlot = -1;
                     }
                 }
@@ -100,12 +100,11 @@ public class PearlMirrorMod implements ClientModInitializer {
 
     public static void onPearlSpawned(Entity pearl) {
         Minecraft client = Minecraft.getInstance();
-        if (client.player == null || client.level == null || pearl == null) return;
-        if (config == null) return;
+        if (client.player == null || client.level == null || pearl == null || config == null) return;
 
         Entity owner = null;
         try {
-            if (pearl instanceof ThrownEnderpearl ep) { // ИСПРАВЛЕНО
+            if (pearl instanceof ThrownEnderpearl ep) {
                 owner = ep.getOwner();
             }
         } catch (Throwable ignored) {}
@@ -149,7 +148,7 @@ public class PearlMirrorMod implements ClientModInitializer {
     }
 
     private static Entity getAuraTarget() {
-        return null; // Заглушка (если есть Aura, верни её таргет)
+        return null;
     }
 
     private static Vec3 predictPearlLanding(Minecraft client, Entity pearl) {
@@ -169,7 +168,6 @@ public class PearlMirrorMod implements ClientModInitializer {
             motion = new Vec3(motion.x * drag, motion.y * drag - 0.03, motion.z * drag);
             pos = next;
 
-            // ИСПРАВЛЕНО: getMinY вместо getMinBuildHeight
             if (pos.y < client.level.getMinY() - 64) return pos;
         }
         return pos;
@@ -227,7 +225,6 @@ public class PearlMirrorMod implements ClientModInitializer {
             motion = new Vec3(motion.x * drag, motion.y * drag - 0.03, motion.z * drag);
             pos = next;
 
-            // ИСПРАВЛЕНО: getMinY вместо getMinBuildHeight
             if (pos.y < client.level.getMinY() - 64) return pos;
         }
         return pos;
@@ -245,14 +242,5 @@ public class PearlMirrorMod implements ClientModInitializer {
 
     public static PearlMirrorConfig getConfig() {
         return config;
-    }
-
-    public static void reset() {
-        landingPoint = null;
-        seenPearls.clear();
-        isThrowing = false;
-        throwTicks = 0;
-        throwCooldown = 0;
-        oldSlot = -1;
     }
 }
