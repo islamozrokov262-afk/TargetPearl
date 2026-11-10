@@ -154,6 +154,7 @@ public class PearlMirrorMod implements ClientModInitializer {
         return null;
     }
 
+    // Симуляция полета ЧУЖОГО перла
     private static Vec3 predictPearlLanding(Minecraft client, Entity pearl) {
         Vec3 pos = pearl.position();
         Vec3 motion = pearl.getDeltaMovement();
@@ -176,15 +177,19 @@ public class PearlMirrorMod implements ClientModInitializer {
         return pos;
     }
 
+    // Расчет углов для броска СВОЕГО перла
     private static float[] calculateThrowAngles(Minecraft client, Vec3 eyes, Vec3 landing) {
         double dx = landing.x - eyes.x;
         double dz = landing.z - eyes.z;
         double dy = landing.y - eyes.y;
 
         float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0F);
+        
+        // Начальный питч для прямой наводки
         float bestPitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
         double bestDist = Double.MAX_VALUE;
 
+        // Перебор питча (грубый) от 89 (вниз) до -90 (вверх)
         for (float pitch = 89.0F; pitch >= -90.0F; pitch -= 1.0F) {
             Vec3 sim = simulateThrow(client, eyes, yaw, pitch);
             double dist = sim.distanceTo(landing);
@@ -194,6 +199,7 @@ public class PearlMirrorMod implements ClientModInitializer {
             }
         }
 
+        // Точная доводка ±1 градус
         float refined = bestPitch;
         for (float pitch = bestPitch - 1.0F; pitch <= bestPitch + 1.0F; pitch += 0.1F) {
             Vec3 sim = simulateThrow(client, eyes, yaw, pitch);
@@ -206,8 +212,11 @@ public class PearlMirrorMod implements ClientModInitializer {
         return new float[]{yaw, refined};
     }
 
+    // Симуляция полета СВОЕГО перла
     private static Vec3 simulateThrow(Minecraft client, Vec3 eyes, float yaw, float pitch) {
         double speed = 1.5D;
+        
+        // Формула направления (исправлены знаки для правильной траектории)
         double vx = -Math.sin(Math.toRadians(yaw)) * Math.cos(Math.toRadians(pitch)) * speed;
         double vy = -Math.sin(Math.toRadians(pitch)) * speed;
         double vz = Math.cos(Math.toRadians(yaw)) * Math.cos(Math.toRadians(pitch)) * speed;
@@ -223,9 +232,8 @@ public class PearlMirrorMod implements ClientModInitializer {
 
             if (hit.getType() != HitResult.Type.MISS) return hit.getLocation();
 
-            boolean inWater = !client.level.getFluidState(BlockPos.containing(pos)).isEmpty();
-            double drag = inWater ? 0.8 : 0.99;
-            motion = new Vec3(motion.x * drag, motion.y * drag - 0.03, motion.z * drag);
+            // Сопротивление воздуха и гравитация (0.99 и 0.03)
+            motion = new Vec3(motion.x * 0.99, motion.y * 0.99 - 0.03, motion.z * 0.99);
             pos = next;
 
             if (pos.y < client.level.getMinY() - 64) return pos;
