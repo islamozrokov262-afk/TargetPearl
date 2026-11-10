@@ -9,16 +9,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Entity.class)
 public class EnderPearlSpawnMixin {
-    // Вместо addEntity в Level, мы цепляемся за метод baseTick (он есть у всех сущностей)
     @Inject(method = "baseTick", at = @At("HEAD"))
     private void pearlMirror$onEntityTick(CallbackInfo ci) {
         Entity entity = (Entity) (Object) this;
         
-        // Проверяем, что это эндер-перл по имени сущности
+        // Отладка: проверяем, видим ли мы перлы вообще
         if (entity.getType().toString().contains("ender_pearl")) {
-            // Вызываем наш метод только 1 раз при спавне
-            // (проверка на tickCount == 0 гарантирует, что мы поймаем только что заспавненный перл)
-            if (entity.tickCount == 0) {
+            if (entity.tickCount <= 1) { // <= 1, чтобы точно не пропустить спавн
+                // Отладка в чат (чтобы ты увидел, что миксин работает)
+                net.minecraft.client.Minecraft.getInstance().player.displayClientMessage(
+                    net.minecraft.network.chat.Component.literal("§a[PearlMirror] Миксин увидел перл!"), true
+                );
                 PearlMirrorMod.onPearlSpawned(entity);
             }
         }
