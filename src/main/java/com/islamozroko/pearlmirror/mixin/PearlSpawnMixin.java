@@ -21,7 +21,6 @@ public class PearlSpawnMixin {
         
         Entity entity = mc.level.getEntity(packet.getId());
         
-        // Если это перл - передаем его в наш мод
         if (entity != null && entity.getType() == EntityType.ENDER_PEARL) {
             PearlMirrorMod.onPearlSpawned(entity);
         }
