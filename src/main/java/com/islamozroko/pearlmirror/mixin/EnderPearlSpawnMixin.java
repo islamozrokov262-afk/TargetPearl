@@ -2,7 +2,7 @@ package com.islamozroko.pearlmirror.mixin;
 
 import com.islamozroko.pearlmirror.PearlMirrorMod;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.projectile.EnderPearl;
+import net.minecraft.world.entity.projectile.ThrownEnderpearl; // Исправлено под 1.21.11
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -10,10 +10,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Level.class)
-public class EnderPearlSpawnMixin {
+public class EnderPearlSpawnMixin { // Имя класса совпадает с именем файла
     @Inject(method = "addEntity", at = @At("TAIL"))
     private void pearlMirror$onEntityAdded(Entity entity, CallbackInfoReturnable<Boolean> cir) {
-        if (entity instanceof EnderPearl pearl) {
+        // Проверяем на новый класс перла
+        if (entity instanceof ThrownEnderpearl pearl) {
             PearlMirrorMod.onPearlSpawned(pearl);
         }
     }
