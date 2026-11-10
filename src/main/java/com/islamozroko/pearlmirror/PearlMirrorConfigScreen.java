@@ -11,7 +11,6 @@ public class PearlMirrorConfigScreen extends OptionsSubScreen {
         super(parent, net.minecraft.client.Minecraft.getInstance().options, Component.literal("Pearl Mirror Settings"));
     }
 
-    // Добавили метод create для совместимости с PearlMirrorModMenu
     public static Screen create(Screen parent) {
         return new PearlMirrorConfigScreen(parent);
     }
