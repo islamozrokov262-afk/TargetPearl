@@ -11,7 +11,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.projectile.ThrownEnderPearl; // С большой P
+import net.minecraft.entity.projectile.thrown.EnderPearlEntity; // ИСПРАВЛЕНО ПОД 1.21.11
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
@@ -104,7 +104,7 @@ public class PearlMirrorMod implements ClientModInitializer {
 
         Entity owner = null;
         try {
-            if (pearl instanceof ThrownEnderPearl ep) { // С большой P
+            if (pearl instanceof EnderPearlEntity ep) { // ИСПРАВЛЕНО
                 owner = ep.getOwner();
             }
         } catch (Throwable ignored) {}
