@@ -3,7 +3,7 @@
   "package": "com.islamozroko.pearlmirror.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "PearlSpawnMixin"
+    "EnderPearlSpawnMixin"
   ],
   "injectors": {
     "defaultRequire": 1
