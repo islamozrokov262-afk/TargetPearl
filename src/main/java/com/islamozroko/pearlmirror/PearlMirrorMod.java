@@ -11,7 +11,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.entity.projectile.thrown.EnderPearlEntity; // ИСПРАВЛЕНО ПОД 1.21.11
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
@@ -102,10 +102,13 @@ public class PearlMirrorMod implements ClientModInitializer {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.level == null || pearl == null || config == null) return;
 
+        // Проверка по типу сущности (работает на любой версии)
+        if (!pearl.getType().toString().contains("ender_pearl")) return;
+
         Entity owner = null;
         try {
-            if (pearl instanceof EnderPearlEntity ep) { // ИСПРАВЛЕНО
-                owner = ep.getOwner();
+            if (pearl instanceof Projectile projectile) {
+                owner = projectile.getOwner();
             }
         } catch (Throwable ignored) {}
 
