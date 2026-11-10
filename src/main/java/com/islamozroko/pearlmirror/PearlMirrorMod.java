@@ -7,7 +7,9 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.Items;
 import org.lwjgl.glfw.GLFW;
@@ -20,8 +22,9 @@ public class PearlMirrorMod implements ClientModInitializer {
     public static float savedPitch = 0;
     public static boolean hasSavedPearl = false;
     
-    private static int state = 0; // 0 - ничего, 1 - свапнули, 2 - кидаем
-    private static int oldSlot = -1;
+    // Переменные для задержки
+    private static boolean isThrowing = false;
+    private static int delayTicks = 0;
 
     public static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
             Identifier.fromNamespaceAndPath("pearlmirror", "main")
@@ -43,52 +46,37 @@ public class PearlMirrorMod implements ClientModInitializer {
 
             // Нажатие кнопки
             while (mirrorKey.consumeClick()) {
-                if (hasSavedPearl && state == 0) {
+                if (hasSavedPearl) {
                     int pearlSlot = findPearl(client);
                     if (pearlSlot != -1) {
-                        // Выключаем килку
-                        setKeyPressed(config.auraKeyCode, true);
-                        setKeyPressed(config.auraKeyCode, false);
-                        
-                        // Запоминаем старый слот и свапаем на перл
-                        oldSlot = client.player.getInventory().getSelectedSlot();
                         client.player.getInventory().setSelectedSlot(pearlSlot);
-                        
-                        // Поворачиваем камеру
-                        client.player.setYRot(savedYaw);
-                        client.player.setXRot(savedPitch);
-                        
-                        state = 1; // Переходим в состояние "кидаем"
+                        isThrowing = true;
+                        delayTicks = 2; // Ждем 2 тика перед отправкой пакета
+                        hasSavedPearl = false;
                     } else {
                         client.player.displayClientMessage(Component.literal("§cПерла нет в хотбаре!"), true);
                     }
-                } else if (!hasSavedPearl) {
+                } else {
                     client.player.displayClientMessage(Component.literal("§cПерл врага не найден!"), true);
                 }
             }
 
-            // Логика броска (в следующем тике после свапа)
-            if (state == 1) {
-                // Держим камеру, чтобы килка не сбила
-                client.player.setYRot(savedYaw);
-                client.player.setXRot(savedPitch);
-                
-                // Нажимаем ПКМ (кидаем)
-                client.options.keyUse.setDown(true);
-                state = 2;
-            } else if (state == 2) {
-                // Отпускаем ПКМ
-                client.options.keyUse.setDown(false);
-                
-                // Возвращаем старый слот (меч)
-                if (oldSlot != -1) {
-                    client.player.getInventory().setSelectedSlot(oldSlot);
-                    oldSlot = -1;
+            // Логика задержки и отправки пакета
+            if (isThrowing) {
+                if (delayTicks > 0) {
+                    delayTicks--;
+                } else {
+                    // Отправляем пакет с нужными углами
+                    if (client.getConnection() != null) {
+                        client.getConnection().send(new ServerboundUseItemPacket(
+                                InteractionHand.MAIN_HAND, 
+                                0, 
+                                savedYaw, 
+                                savedPitch
+                        ));
+                    }
+                    isThrowing = false;
                 }
-                
-                // Сбрасываем состояние
-                state = 0;
-                hasSavedPearl = false;
             }
         });
     }
@@ -123,12 +111,6 @@ public class PearlMirrorMod implements ClientModInitializer {
             
             hasSavedPearl = true;
         }
-    }
-
-    // ВОТ ЭТОТ МЕТОД НУЖЕН ДЛЯ ЭМУЛЯЦИИ КНОПКИ R
-    private void setKeyPressed(int keyCode, boolean pressed) {
-        KeyMapping.set(InputConstants.Type.KEYSYM.getOrCreate(keyCode), pressed);
-        KeyMapping.click(InputConstants.Type.KEYSYM.getOrCreate(keyCode));
     }
 
     private int findPearl(Minecraft client) {
