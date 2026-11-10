@@ -25,13 +25,17 @@ public class PearlMirrorConfig {
     public int throwTicks = 2;
 
     // Фильтр целей
-    public boolean onlyAuraTarget = false;   // ловить только цель Aura (если Aura есть)
-    public boolean fallbackToAny = true;     // если цели Aura нет — ловить любой
-    public boolean ignoreTeammates = true;   // не реагировать на тиммейтов
-    public List<String> teammateList = new ArrayList<>(); // ники тиммейтов
-    public boolean onlyFromList = false;     // ловить только игроков из playerList
-    public List<String> playerList = new ArrayList<>();   // ники врагов
-    public boolean preferClosest = true;     // при нескольких перлах — ближайший
+    public boolean onlyAuraTarget = false;
+    public boolean fallbackToAny = true;
+    public boolean ignoreTeammates = true;
+    public List<String> teammateList = new ArrayList<>();
+    public boolean onlyFromList = false;
+    public List<String> playerList = new ArrayList<>();
+    public boolean preferClosest = true;
+
+    // Для экрана настроек (чтобы не было ошибок в ConfigScreen)
+    public float pitchBoost = 8.0f;
+    public int auraKeyCode = 82; // клавиша R
 
     public static PearlMirrorConfig load() {
         try {
