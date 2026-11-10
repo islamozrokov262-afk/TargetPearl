@@ -11,7 +11,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.projectile.EnderPearl;
+import net.minecraft.world.entity.projectile.ThrownEnderpearl; // ИСПРАВЛЕНО
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
@@ -27,13 +27,9 @@ public class PearlMirrorMod implements ClientModInitializer {
     private static PearlMirrorConfig config;
     private static KeyMapping mirrorKey;
 
-    // Точка падения чужого перла
     public static Vec3 landingPoint = null;
-
-    // Анти-дубль: уже обработанные перлы
     private static final Set<UUID> seenPearls = new HashSet<>();
 
-    // Тайминги броска
     private static boolean isThrowing = false;
     private static int throwTicks = 0;
     private static int throwCooldown = 0;
@@ -59,10 +55,8 @@ public class PearlMirrorMod implements ClientModInitializer {
 
             if (throwCooldown > 0) throwCooldown--;
 
-            // Нажатие кнопки
             while (mirrorKey.consumeClick()) {
                 if (throwCooldown > 0) break;
-
                 if (landingPoint == null) {
                     client.player.displayClientMessage(Component.literal("§cПерл врага не найден!"), true);
                     break;
@@ -77,8 +71,8 @@ public class PearlMirrorMod implements ClientModInitializer {
                 Vec3 eyes = client.player.getEyePosition();
                 float[] angles = calculateThrowAngles(client, eyes, landingPoint);
 
-                oldSlot = client.player.getInventory().getSelectedSlot();
-                client.player.getInventory().setSelectedSlot(pearlSlot);
+                oldSlot = client.player.getInventory().selected; // В 1.21.11 это поле
+                client.player.getInventory().selected = pearlSlot;
                 client.player.setYRot(angles[0]);
                 client.player.setXRot(angles[1]);
 
@@ -88,7 +82,6 @@ public class PearlMirrorMod implements ClientModInitializer {
                 throwCooldown = config.delayTicks;
             }
 
-            // Логика броска
             if (isThrowing) {
                 if (throwTicks > 0) {
                     throwTicks--;
@@ -96,9 +89,8 @@ public class PearlMirrorMod implements ClientModInitializer {
                 } else {
                     client.options.keyUse.setDown(false);
                     isThrowing = false;
-
                     if (oldSlot >= 0) {
-                        client.player.getInventory().setSelectedSlot(oldSlot);
+                        client.player.getInventory().selected = oldSlot;
                         oldSlot = -1;
                     }
                 }
@@ -106,44 +98,27 @@ public class PearlMirrorMod implements ClientModInitializer {
         });
     }
 
-    /**
-     * Вызывается из миксина на спавн перла.
-     */
     public static void onPearlSpawned(Entity pearl) {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.level == null || pearl == null) return;
         if (config == null) return;
 
-        // Владелец
         Entity owner = null;
         try {
-            if (pearl instanceof EnderPearl ep) {
+            if (pearl instanceof ThrownEnderpearl ep) { // ИСПРАВЛЕНО
                 owner = ep.getOwner();
             }
         } catch (Throwable ignored) {}
 
         if (owner == client.player) return;
-
         String ownerName = owner == null ? "" : owner.getName().getString();
 
-        // Радиус (если не allPearls)
         if (!config.allPearls && pearl.distanceTo(client.player) > config.radius) return;
-
-        // Свежесть (если не allPearls)
         if (!config.allPearls && pearl.tickCount > 2) return;
 
-        // Тиммейты — игнор
-        if (config.ignoreTeammates && !ownerName.isEmpty()
-                && config.teammateList.contains(ownerName)) {
-            return;
-        }
+        if (config.ignoreTeammates && !ownerName.isEmpty() && config.teammateList.contains(ownerName)) return;
+        if (config.onlyFromList && !config.playerList.contains(ownerName)) return;
 
-        // Только игроки из списка
-        if (config.onlyFromList && !config.playerList.contains(ownerName)) {
-            return;
-        }
-
-        // Только цель Aura
         if (config.onlyAuraTarget) {
             Entity auraTarget = getAuraTarget();
             if (auraTarget == null) {
@@ -153,21 +128,17 @@ public class PearlMirrorMod implements ClientModInitializer {
             }
         }
 
-        // Порог сердец владельца
         if (config.minHearts > 0.0F && owner instanceof LivingEntity living) {
             if (living.getHealth() / 2.0F < config.minHearts) return;
         }
 
-        // Анти-дубль
         UUID id = pearl.getUUID();
         if (!seenPearls.add(id)) return;
         if (seenPearls.size() > 256) seenPearls.clear();
 
-        // Предсказание точки падения
         Vec3 landing = predictPearlLanding(client, pearl);
         if (landing == null) return;
 
-        // Приоритет: при нескольких перлах — ближайший к игроку
         if (config.preferClosest && landingPoint != null) {
             double newDist = client.player.position().distanceTo(landing);
             double oldDist = client.player.position().distanceTo(landingPoint);
@@ -177,55 +148,33 @@ public class PearlMirrorMod implements ClientModInitializer {
         landingPoint = landing;
     }
 
-    /**
-     * Геттер цели Aura. Если Aura нет в сборке — вернёт null.
-     * Если Aura есть — замени тело на реальный вызов, например:
-     *   return Aura.getInstance().getTarget();
-     */
     private static Entity getAuraTarget() {
-        // TODO: интеграция с Aura (если есть)
-        return null;
+        return null; // Заглушка (если есть Aura, верни её таргет)
     }
 
-    /**
-     * Симуляция полёта перла (200 тиков, drag 0.99/0.8, gravity 0.03, raytrace).
-     * В войде возвращает последнюю позицию.
-     */
     private static Vec3 predictPearlLanding(Minecraft client, Entity pearl) {
         Vec3 pos = pearl.position();
         Vec3 motion = pearl.getDeltaMovement();
 
         for (int i = 0; i < 200; i++) {
             Vec3 next = pos.add(motion);
-
             BlockHitResult hit = client.level.clip(new ClipContext(
-                    pos, next,
-                    ClipContext.Block.COLLIDER,
-                    ClipContext.Fluid.ANY,
-                    pearl
+                    pos, next, ClipContext.Block.COLLIDER, ClipContext.Fluid.ANY, pearl
             ));
 
-            if (hit.getType() != HitResult.Type.MISS) {
-                return hit.getLocation();
-            }
+            if (hit.getType() != HitResult.Type.MISS) return hit.getLocation();
 
             boolean inWater = !client.level.getFluidState(BlockPos.containing(pos)).isEmpty();
             double drag = inWater ? 0.8 : 0.99;
-
             motion = new Vec3(motion.x * drag, motion.y * drag - 0.03, motion.z * drag);
             pos = next;
 
-            if (pos.y < client.level.getMinBuildHeight() - 64) {
-                return pos;
-            }
+            // ИСПРАВЛЕНО: getMinY вместо getMinBuildHeight
+            if (pos.y < client.level.getMinY() - 64) return pos;
         }
-
         return pos;
     }
 
-    /**
-     * Подбор yaw/pitch: yaw по направлению, pitch — грубый перебор 89→-90 + уточнение ±1° шагом 0.1.
-     */
     private static float[] calculateThrowAngles(Minecraft client, Vec3 eyes, Vec3 landing) {
         double dx = landing.x - eyes.x;
         double dz = landing.z - eyes.z;
@@ -235,7 +184,6 @@ public class PearlMirrorMod implements ClientModInitializer {
         float bestPitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
         double bestDist = Double.MAX_VALUE;
 
-        // Грубый перебор
         for (float pitch = 89.0F; pitch >= -90.0F; pitch -= 1.0F) {
             Vec3 sim = simulateThrow(client, eyes, yaw, pitch);
             double dist = sim.distanceTo(landing);
@@ -245,7 +193,6 @@ public class PearlMirrorMod implements ClientModInitializer {
             }
         }
 
-        // Уточнение
         float refined = bestPitch;
         for (float pitch = bestPitch - 1.0F; pitch <= bestPitch + 1.0F; pitch += 0.1F) {
             Vec3 sim = simulateThrow(client, eyes, yaw, pitch);
@@ -255,13 +202,9 @@ public class PearlMirrorMod implements ClientModInitializer {
                 refined = pitch;
             }
         }
-
         return new float[]{yaw, refined};
     }
 
-    /**
-     * Симуляция своего броска (speed 1.5, drag 0.99/0.8, gravity 0.03, 200 тиков).
-     */
     private static Vec3 simulateThrow(Minecraft client, Vec3 eyes, float yaw, float pitch) {
         double speed = 1.5D;
         double vx = -Math.sin(Math.toRadians(yaw)) * Math.cos(Math.toRadians(pitch)) * speed;
@@ -273,29 +216,20 @@ public class PearlMirrorMod implements ClientModInitializer {
 
         for (int i = 0; i < 200; i++) {
             Vec3 next = pos.add(motion);
-
             BlockHitResult hit = client.level.clip(new ClipContext(
-                    pos, next,
-                    ClipContext.Block.COLLIDER,
-                    ClipContext.Fluid.ANY,
-                    client.player
+                    pos, next, ClipContext.Block.COLLIDER, ClipContext.Fluid.ANY, client.player
             ));
 
-            if (hit.getType() != HitResult.Type.MISS) {
-                return hit.getLocation();
-            }
+            if (hit.getType() != HitResult.Type.MISS) return hit.getLocation();
 
             boolean inWater = !client.level.getFluidState(BlockPos.containing(pos)).isEmpty();
             double drag = inWater ? 0.8 : 0.99;
-
             motion = new Vec3(motion.x * drag, motion.y * drag - 0.03, motion.z * drag);
             pos = next;
 
-            if (pos.y < client.level.getMinBuildHeight() - 64) {
-                return pos;
-            }
+            // ИСПРАВЛЕНО: getMinY вместо getMinBuildHeight
+            if (pos.y < client.level.getMinY() - 64) return pos;
         }
-
         return pos;
     }
 
